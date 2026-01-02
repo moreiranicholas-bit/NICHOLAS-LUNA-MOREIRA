@@ -1,0 +1,5 @@
+{
+  "name": "PEDRINHO PESCADOS",
+  "description": "Sistema de gestão financeira e de estoque com suporte a vendas no rotativo, controle de cheques e cálculo de custos agregados. Focado em usuário único/admin.",
+  "requestFramePermissions": []
+}
