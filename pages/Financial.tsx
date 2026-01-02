@@ -34,12 +34,32 @@ const Financial: React.FC = () => {
 // --- Sub Components ---
 
 const CashFlowTab: React.FC = () => {
-    const [movements, setMovements] = useState<FinancialMovement[]>([]);
-    const [filterType, setFilterType] = useState<'ALL' | 'PIX' | 'DINHEIRO' | 'CHEQUE'>('ALL');
+    // We extend FinancialMovement type locally to include Rotativo sales for display
+    type DisplayMovement = FinancialMovement & { isReceivable?: boolean };
+
+    const [movements, setMovements] = useState<DisplayMovement[]>([]);
+    const [filterType, setFilterType] = useState<'ALL' | 'PIX' | 'DINHEIRO' | 'CHEQUE' | 'ROTATIVO'>('ALL');
     const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0]);
 
     useEffect(() => {
-        const all = db.getMovements().sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // 1. Get Actual Money Movements
+        const actualMovements: DisplayMovement[] = db.getMovements();
+        
+        // 2. Get Rotativo Sales (Receivables)
+        const rotativoSales = db.getSales()
+            .filter(s => s.payment_method === 'ROTATIVO' && s.status !== 'CANCELADA')
+            .map(s => ({
+                id: s.id,
+                date: s.date,
+                type: 'ENTRADA' as const,
+                amount: s.total,
+                category: 'Venda Rotativo',
+                description: `Venda #${s.id} - ${s.client_name}`,
+                payment_method: 'ROTATIVO',
+                isReceivable: true // Flag to distinguish
+            }));
+
+        const all = [...actualMovements, ...rotativoSales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setMovements(all);
     }, []);
 
@@ -49,9 +69,14 @@ const CashFlowTab: React.FC = () => {
         return matchesDate && matchesType;
     });
 
-    const totalIn = filtered.filter(m => m.type === 'ENTRADA').reduce((acc, m) => acc + m.amount, 0);
-    const totalOut = filtered.filter(m => m.type === 'SAIDA').reduce((acc, m) => acc + m.amount, 0);
-    const balance = totalIn - totalOut;
+    // Calculate Totals
+    // Cash Balance ignores 'ROTATIVO' sales (isReceivable) because it's not cash yet
+    const cashIn = filtered.filter(m => m.type === 'ENTRADA' && !m.isReceivable).reduce((acc, m) => acc + m.amount, 0);
+    const cashOut = filtered.filter(m => m.type === 'SAIDA').reduce((acc, m) => acc + m.amount, 0);
+    const cashBalance = cashIn - cashOut;
+
+    // Production Total includes Rotativo
+    const rotativoTotal = filtered.filter(m => m.isReceivable).reduce((acc, m) => acc + m.amount, 0);
 
     return (
         <div className="space-y-4">
@@ -69,12 +94,20 @@ const CashFlowTab: React.FC = () => {
                             <option value="PIX">Pix</option>
                             <option value="DINHEIRO">Dinheiro</option>
                             <option value="CHEQUE">Cheque</option>
+                            <option value="ROTATIVO">Rotativo (Vendas)</option>
                         </select>
                      </div>
                  </div>
-                 <div className="text-right w-full md:w-auto min-w-[200px]">
-                     <p className="text-xs text-slate-500 font-bold uppercase">Saldo do Dia (Filtrado)</p>
-                     <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {balance.toFixed(2)}</p>
+                 <div className="text-right w-full md:w-auto min-w-[200px] flex flex-col items-end">
+                     <div className="mb-1">
+                        <p className="text-xs text-slate-400 font-bold uppercase">Saldo Caixa (Real)</p>
+                        <p className={`text-xl font-bold ${cashBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>R$ {cashBalance.toFixed(2)}</p>
+                     </div>
+                     {rotativoTotal > 0 && (
+                        <div className="text-xs">
+                             <span className="text-purple-600 font-bold">+ R$ {rotativoTotal.toFixed(2)}</span> em Rotativo
+                        </div>
+                     )}
                  </div>
              </div>
 
@@ -92,7 +125,7 @@ const CashFlowTab: React.FC = () => {
                      </thead>
                      <tbody className="divide-y">
                          {filtered.map(m => (
-                             <tr key={m.id} className="hover:bg-slate-50">
+                             <tr key={`${m.payment_method}-${m.id}`} className="hover:bg-slate-50">
                                  <td className="p-3 text-slate-600">
                                      {new Date(m.date).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                                  </td>
@@ -105,12 +138,18 @@ const CashFlowTab: React.FC = () => {
                                         ${m.payment_method === 'PIX' ? 'bg-green-50 text-green-700 border-green-200' : ''}
                                         ${m.payment_method === 'DINHEIRO' ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
                                         ${m.payment_method === 'CHEQUE' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : ''}
+                                        ${m.payment_method === 'ROTATIVO' ? 'bg-purple-50 text-purple-700 border-purple-200' : ''}
                                      `}>
                                          {m.payment_method}
                                      </span>
                                  </td>
                                  <td className="p-3 text-right">
-                                     {m.type === 'ENTRADA' ? <span className="text-green-600 font-bold">R$ {m.amount.toFixed(2)}</span> : '-'}
+                                     {m.type === 'ENTRADA' ? (
+                                         <span className={`font-bold ${m.isReceivable ? 'text-purple-600 opacity-75' : 'text-green-600'}`}>
+                                             R$ {m.amount.toFixed(2)}
+                                             {m.isReceivable && <span className="text-[10px] block font-normal text-slate-400">A Receber</span>}
+                                         </span>
+                                     ) : '-'}
                                  </td>
                                  <td className="p-3 text-right">
                                      {m.type === 'SAIDA' ? <span className="text-red-600 font-bold">R$ {m.amount.toFixed(2)}</span> : '-'}

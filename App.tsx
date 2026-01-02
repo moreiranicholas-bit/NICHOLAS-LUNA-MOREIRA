@@ -7,7 +7,7 @@ import Financial from './pages/Financial';
 import Reports from './pages/Reports';
 import SettingsPage from './pages/Settings';
 import { db } from './services/db';
-import { AlertCircle, Wallet, CreditCard, Banknote, FileText, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { AlertCircle, Wallet, CreditCard, Banknote, FileText, ArrowUpCircle, TrendingUp } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -101,26 +101,24 @@ const Dashboard: React.FC<{onNavigate: (p: string) => void}> = ({ onNavigate }) 
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-         <h1 className="text-3xl font-bold text-slate-800">Resumo do Dia</h1>
-         <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-bold border border-blue-200">
-            {new Date().toLocaleDateString()}
-         </span>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+         <div>
+             <h1 className="text-3xl font-bold text-slate-800">Resumo do Dia</h1>
+             <p className="text-slate-500 text-sm">Visão geral das entradas e produção de hoje.</p>
+         </div>
+         <div className="flex items-center gap-3">
+             <span className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-sm font-bold border border-blue-200 shadow-sm">
+                {new Date().toLocaleDateString()}
+             </span>
+             <div className="bg-slate-800 text-white px-4 py-2 rounded-lg shadow-sm">
+                 <span className="text-xs uppercase text-slate-400 block">Caixa Líquido</span>
+                 <span className="font-bold text-lg">R$ {totalReceivedToday.toFixed(2)}</span>
+             </div>
+         </div>
       </div>
       
-      {/* SEÇÃO 1: CAIXA REAL (Entradas Efetivas) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* TOTAL GERAL */}
-          <div className="bg-slate-800 text-white p-5 rounded-lg shadow-lg flex flex-col justify-between">
-              <div>
-                  <p className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-1">Caixa Total (Hoje)</p>
-                  <p className="text-3xl font-bold">R$ {totalReceivedToday.toFixed(2)}</p>
-              </div>
-              <div className="mt-4 flex items-center gap-2 text-xs text-slate-400">
-                  <ArrowUpCircle size={14} className="text-green-400"/> Entradas confirmadas
-              </div>
-          </div>
-
+      {/* SEÇÃO 1: DETALHAMENTO DAS ENTRADAS (4 TIPOS) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* PIX */}
           <div className="bg-white p-5 rounded-lg shadow border-l-4 border-green-500">
               <div className="flex justify-between items-start mb-2">
@@ -147,25 +145,24 @@ const Dashboard: React.FC<{onNavigate: (p: string) => void}> = ({ onNavigate }) 
               </div>
               <p className="text-2xl font-bold text-slate-800">R$ {checkIn.toFixed(2)}</p>
           </div>
+
+          {/* ROTATIVO (FIADO) */}
+          <div className="bg-white p-5 rounded-lg shadow border-l-4 border-purple-500">
+              <div className="flex justify-between items-start mb-2">
+                 <div className="p-2 bg-purple-100 rounded-lg text-purple-600"><CreditCard size={20}/></div>
+                 <span className="text-xs font-bold text-slate-400 uppercase">Rotativo (Vendas)</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-800">R$ {rotativoSales.toFixed(2)}</p>
+          </div>
       </div>
 
-      {/* SEÇÃO 2: VENDAS A PRAZO E PENDÊNCIAS */}
+      {/* SEÇÃO 2: OUTROS INDICADORES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Vendas no Rotativo (Hoje) */}
-          <div className="bg-white p-5 rounded-lg shadow border border-slate-200">
-              <div className="flex items-center gap-2 mb-3">
-                  <CreditCard className="text-purple-600" size={20}/>
-                  <h3 className="font-bold text-slate-700">Vendas no Rotativo (Hoje)</h3>
-              </div>
-              <p className="text-3xl font-bold text-purple-600">R$ {rotativoSales.toFixed(2)}</p>
-              <p className="text-xs text-slate-500 mt-2">Novas dívidas geradas hoje. Não entrou no caixa.</p>
-          </div>
-
           {/* Cheques em Custódia */}
           <div className="bg-white p-5 rounded-lg shadow border border-slate-200">
               <div className="flex items-center gap-2 mb-3">
                   <FileText className="text-orange-600" size={20}/>
-                  <h3 className="font-bold text-slate-700">Cheques em Custódia (Total)</h3>
+                  <h3 className="font-bold text-slate-700">Cheques em Custódia (Carteira)</h3>
               </div>
               <p className="text-3xl font-bold text-orange-600">R$ {custodyChecksTotal.toFixed(2)}</p>
               <button onClick={() => onNavigate('financial')} className="text-xs text-blue-600 mt-2 hover:underline">Gerenciar Cheques &rarr;</button>
@@ -180,29 +177,18 @@ const Dashboard: React.FC<{onNavigate: (p: string) => void}> = ({ onNavigate }) 
               <p className="text-3xl font-bold text-red-600">{lowStock}</p>
               <button onClick={() => onNavigate('inventory')} className="text-xs text-blue-600 mt-2 hover:underline">Repor Estoque &rarr;</button>
           </div>
-      </div>
-
-      {/* Acesso Rápido */}
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="font-bold text-slate-700 mb-4">Acesso Rápido</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button onClick={() => onNavigate('pos')} className="p-4 bg-slate-50 hover:bg-slate-100 rounded text-center border group">
-                <span className="block font-bold text-blue-600 group-hover:scale-105 transition-transform">PDV</span>
-                <span className="text-xs text-slate-500">Realizar Venda</span>
-            </button>
-            <button onClick={() => onNavigate('inventory')} className="p-4 bg-slate-50 hover:bg-slate-100 rounded text-center border group">
-                <span className="block font-bold text-green-600 group-hover:scale-105 transition-transform">Entrada</span>
-                <span className="text-xs text-slate-500">Nota Fiscal</span>
-            </button>
-            <button onClick={() => onNavigate('clients')} className="p-4 bg-slate-50 hover:bg-slate-100 rounded text-center border group">
-                <span className="block font-bold text-purple-600 group-hover:scale-105 transition-transform">Cliente</span>
-                <span className="text-xs text-slate-500">Cadastro</span>
-            </button>
-            <button onClick={() => onNavigate('financial')} className="p-4 bg-slate-50 hover:bg-slate-100 rounded text-center border group">
-                <span className="block font-bold text-orange-600 group-hover:scale-105 transition-transform">Contas</span>
-                <span className="text-xs text-slate-500">Livro Caixa</span>
-            </button>
-        </div>
+          
+           {/* Acesso Rápido (Inline) */}
+           <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => onNavigate('pos')} className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 flex flex-col items-center justify-center shadow transition-transform active:scale-95">
+                    <TrendingUp size={24} className="mb-2"/>
+                    <span className="font-bold">Nova Venda</span>
+                </button>
+                <button onClick={() => onNavigate('financial')} className="bg-slate-700 hover:bg-slate-800 text-white rounded-lg p-4 flex flex-col items-center justify-center shadow transition-transform active:scale-95">
+                    <ArrowUpCircle size={24} className="mb-2"/>
+                    <span className="font-bold">Financeiro</span>
+                </button>
+           </div>
       </div>
 
       {/* TOP 10 DEVEDORES */}
